@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-usage="$0 --subnet 192.168.0.0/24,192.168.1.1/32 [ --all --dns --nbt ]"
+usage="$0 --subnet 192.168.0.0/24,192.168.1.1/32 [ --all --dns --nbt --verbose]"
 
 if [[ -z $1 ]]
 then
@@ -159,7 +159,7 @@ nbtenum () {
 	for net in ${parsedlist[@]}
 	do
 		log "Scanning ${net} for NBT"
-		nbtscan -r ${net}
+		nbtscan -r ${net} | grep -v 'Sendto failed: Permission denied'
 	done
 }
 
