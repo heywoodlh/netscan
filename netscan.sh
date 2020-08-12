@@ -159,7 +159,7 @@ nbtenum () {
 	for net in ${parsedlist[@]}
 	do
 		log "Scanning ${net} for NBT"
-		nbtscan -r ${net} | grep -v 'Sendto failed: Permission denied'
+		nbtscan -r ${net} | grep -v 'Sendto failed'
 	done
 }
 
