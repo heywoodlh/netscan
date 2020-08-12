@@ -158,17 +158,18 @@ dnsenum () {
 nbtenum () {
 	for net in ${parsedlist[@]}
 	do
+		log "Scanning ${net} for NBT"
 		nbtscan -r ${net}
 	done
 }
 
 main () {
-	if [ -n ${dns} ]
+	if [ ${dns} == "TRUE" ]
 	then
 		dnsenum
 	fi
 
-	if [ -n ${nbt} ]
+	if [ ${nbt} == "TRUE" ]
 	then
 		nbtenum
 	fi
