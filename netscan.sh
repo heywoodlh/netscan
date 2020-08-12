@@ -164,12 +164,12 @@ nbtenum () {
 }
 
 main () {
-	if [ ${dns} == "TRUE" ]
+	if [[ ${dns} == "TRUE" ]]
 	then
 		dnsenum
 	fi
 
-	if [ ${nbt} == "TRUE" ]
+	if [[ ${nbt} == "TRUE" ]]
 	then
 		nbtenum
 	fi
