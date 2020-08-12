@@ -159,7 +159,8 @@ nbtenum () {
 	for net in ${parsedlist[@]}
 	do
 		log "Scanning ${net} for NBT"
-		nbtscan -r ${net} | grep -v 'Sendto failed'
+		result=$(nbtscan -r ${net}) 
+		echo ${result} | grep -v 'Sendto failed'
 	done
 }
 
