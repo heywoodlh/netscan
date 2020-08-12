@@ -156,7 +156,10 @@ dnsenum () {
 }
 
 nbtenum () {
-	net=$1
+	for net in ${parsedlist[@]}
+	do
+		nbtscan -r ${net}
+	done
 }
 
 main () {
@@ -164,13 +167,11 @@ main () {
 	then
 		dnsenum
 	fi
-	for net in "${parsedlist[@]}"
-	do
-		if [ -n ${nbt} ]
-		then
-			nbtenum ${net}
-		fi
-	done
+
+	if [ -n ${nbt} ]
+	then
+		nbtenum
+	fi
 }
 
 main
