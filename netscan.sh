@@ -159,7 +159,7 @@ nbtenum () {
 	for net in ${parsedlist[@]}
 	do
 		log "Scanning ${net} for NBT"
-		nbtscan -r ${net}
+		nbtscan -r ${net} 2>/dev/null
 	done
 }
 
