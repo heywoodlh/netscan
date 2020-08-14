@@ -120,13 +120,14 @@ dnsenum () {
 	log "Scanning for DNS Servers..."
 	dns_servers=$(nmap -sS ${parsedlist[@]} -p 53 --open | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
 	printf "Detected DNS Servers:\n${dns_servers}\n"
+	printf "---------------------------------------"
 	for server in ${dns_servers}
 	do
 		log "Checking ${server} for any DNS names that resolve to ${server}."
 		results=$(dig -x ${server} @${server} +short)
 		if [[ -n ${results} ]]
 		then
-			echo "${server}: ${results}"
+			printf "${server}: ${results} (@{server})"
 		fi
 
 		log "Checking if any DNS names resolve to ${server} against all the DNS servers detected so far."
@@ -167,11 +168,13 @@ main () {
 	if [[ ${dns} == "TRUE" ]]
 	then
 		dnsenum
+		printf "\n"
 	fi
 
 	if [[ ${nbt} == "TRUE" ]]
 	then
 		nbtenum
+		printf "\n"
 	fi
 }
 
