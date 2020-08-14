@@ -120,7 +120,7 @@ dnsenum () {
 	log "Scanning for DNS Servers..."
 	dns_servers=$(nmap -sS ${parsedlist[@]} -p 53 --open | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
 	printf "Detected DNS Servers:\n${dns_servers}\n"
-	printf "---------------------------------------"
+	echo "---------------------------------------"
 	for server in ${dns_servers}
 	do
 		log "Checking ${server} for any DNS names that resolve to ${server}."
