@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-
-usage="$0 --subnet 192.168.0.0/24,192.168.1.1/32 [ --all --dns --nbt --http ] --verbose"
+outdir="$(pwd)/out"
+mkdir -p ${outdir}
+usage="$0 --subnet 192.168.0.0/24,192.168.1.1/32 [ --all --dns --nbt --http --http-crawl ] --verbose"
 
 if [[ -z $1 ]]
 then
@@ -8,7 +9,7 @@ then
 fi
 
 check_deps () {
-	packages=(prips dig masscan nmap nbtscan httprobe)
+	packages=(prips dig masscan nmap nbtscan httprobe meg)
 	for package in "${packages[@]}"
 	do
 		if ! command -v ${package} >/dev/null
@@ -86,6 +87,8 @@ while [[ $# -gt 0 ]]; do
 			export dns="TRUE"
 			export nbt="TRUE"
 			export http="TRUE"
+			export http="TRUE"
+			export http_crawl="TRUE"
 			;;
 		--dns)
 			export dns="TRUE"
@@ -95,6 +98,10 @@ while [[ $# -gt 0 ]]; do
 			;;
 		--http)
 			export http="TRUE"
+			;;
+		--http-crawl)
+			export http="TRUE"
+			export http_crawl="TRUE"
 			;;
 		-v|--verbose)
 			export verbose="TRUE"
@@ -121,9 +128,11 @@ log () {
 }
 
 dnsenum () {
+	mkdir -p ${outdir}/dns
 	log "Scanning for DNS Servers..."
 	dns_servers=$(nmap -sS ${parsedlist[@]} -p 53 --open -n | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
-	printf "Detected DNS Servers:\n${dns_servers}\n"
+	printf "Detected DNS Servers:\n"
+	printf "${dns_servers}\n" | tee -a ${outdir}/dns/servers.txt
 	echo "---------------------------------------"
 	for server in ${dns_servers}
 	do
@@ -131,7 +140,7 @@ dnsenum () {
 		results=$(dig -x ${server} @${server} +short)
 		if [[ -n ${results} ]]
 		then
-			printf "${server}: ${results} (@${server})\n"
+			printf "${server}: ${results} (@${server})\n" | tee -a ${outdir}/dns/resolve.txt
 		fi
 
 		log "Checking if any DNS names resolve to ${server} against all the DNS servers detected so far."
@@ -140,7 +149,7 @@ dnsenum () {
 			results=$(dig -x ${server} @${alt_server} +short)
 			if [[ -n ${results} ]]
 			then
-				echo "${server}: ${results} (@${alt_server})"
+				echo "${server}: ${results} (@${alt_server})" | tee -a ${outdir}/dns/resolve.txt
 			fi
 		done
 		
@@ -153,7 +162,7 @@ dnsenum () {
 				results="$(dig -x ${ip} @${server} +short)"
 				if [[ -n ${results} ]]
 				then
-					echo "${ip}: ${results} (@${server})"
+					echo "${ip}: ${results} (@${server})" | tee -a ${outdir}/dns/resolve.txt
 				fi
 			done
 		done
@@ -161,26 +170,67 @@ dnsenum () {
 }
 
 nbtenum () {
+	mkdir -p ${outdir}/nbt
 	for net in ${parsedlist[@]}
 	do
 		log "Scanning ${net} for NBT"
-		nbtscan -r ${net} 2>/dev/null
+		nbtscan -r ${net} 2>/dev/null | tee -a ${outdir}/nbt/nbt.txt
 	done
 }
 
 httpenum () {
+	mkdir -p ${outdir}/http
 	log "Scanning for HTTP(S) servers"
 	http_servers=$(nmap -sS ${parsedlist[@]} -p80,443,8080 --open -n | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
 	printf "Detected HTTP Servers:\n${http_servers}\n"
 	echo "---------------------------------------"
+
+	uris=()
 	for ip in ${http_servers}
 	do
 		log "Probing ${ip} for HTTP/HTTPS"
-		echo ${ip} | httprobe -p 8080 -t 2000
+		result="$(echo ${ip} | httprobe -p 8080 -t 2000 | tee -a ${outdir}/http/hosts.txt)" &&\
+			uri_detected="TRUE"
+		if [[ -n ${result} ]]
+		then
+			echo ${result}
+			for line in ${result}
+			do
+				uris+=${line}
+			done
+		fi
 	done
+
+	if [[ -e ${outdir}/http/hosts.txt ]]
+	then
+		cat ${outdir}/http/hosts.txt | sort -u > ${outdir}/http/hosts.txt.sorted && mv ${outdir}/http/hosts.txt.sorted ${outdir}/http/hosts.txt
+	fi
+
+	if [[ ${http_crawl} == "TRUE" ]]
+	then
+		mkdir -p ${outdir}/http/crawl 
+		log "Crawling web hosts for paths"
+		meg ${paths_file} ${outdir}/http/hosts.txt ${outdir}/http/crawl --verbose -t 2000 
+	fi
 }
 
 main () {
+	if [[ ${http_crawl} == "TRUE" ]]
+	then
+		if [[ -e paths ]]
+		then
+			export paths_file=./paths
+		elif [[ -e /etc/paths ]]
+		then
+			export paths_file=/etc/paths
+		elif [[ -e /tmp/paths ]]
+		then
+			export paths_file=/tmp/paths
+		else 
+			echo "No URI paths file detected. Please add paths file to ./paths, /etc/paths or /tmp/paths."
+			exit 0
+		fi
+	fi
 	if [[ ${dns} == "TRUE" ]]
 	then
 		dnsenum
