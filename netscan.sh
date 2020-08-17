@@ -210,7 +210,7 @@ httpenum () {
 	then
 		mkdir -p ${outdir}/http/crawl 
 		log "Crawling web hosts for paths"
-		meg ${paths_file} ${outdir}/http/hosts.txt ${outdir}/http/crawl --verbose -t 2000 
+		meg ${paths_file} ${outdir}/http/hosts.txt ${outdir}/http/crawl --concurrency 5 --delay 1000  --verbose -t 2000  --savestatus 200
 	fi
 }
 
