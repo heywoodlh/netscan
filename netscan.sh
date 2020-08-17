@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-usage="$0 --subnet 192.168.0.0/24,192.168.1.1/32 [ --all --dns --nbt --verbose]"
+usage="$0 --subnet 192.168.0.0/24,192.168.1.1/32 [ --all --dns --nbt --http ] --verbose"
 
 if [[ -z $1 ]]
 then
@@ -8,7 +8,7 @@ then
 fi
 
 check_deps () {
-	packages=(prips dig nmap nbtscan)
+	packages=(prips dig nmap nbtscan httprobe)
 	for package in "${packages[@]}"
 	do
 		if ! command -v ${package} >/dev/null
@@ -85,12 +85,16 @@ while [[ $# -gt 0 ]]; do
 		-a|--all)
 			export dns="TRUE"
 			export nbt="TRUE"
+			export http="TRUE"
 			;;
 		--dns)
 			export dns="TRUE"
 			;;
 		--nbt)
 			export nbt="TRUE"
+			;;
+		--http)
+			export http="TRUE"
 			;;
 		-v|--verbose)
 			export verbose="TRUE"
@@ -164,6 +168,22 @@ nbtenum () {
 	done
 }
 
+httprobe () {
+	for net in ${parsedlist[@]}
+	do
+		log "Scanning ${net} for HTTP(S) servers"
+		ip_addresses=$(prips ${net})
+		for ip in ${ip_addresses}
+		do
+			result=$(echo ${ip} | httprobe -t 1000)
+			if [ -n ${result} ]
+			then
+				echo ${result}
+			fi
+		done
+	done
+}
+
 main () {
 	if [[ ${dns} == "TRUE" ]]
 	then
@@ -174,6 +194,11 @@ main () {
 	if [[ ${nbt} == "TRUE" ]]
 	then
 		nbtenum
+		printf "\n"
+	fi
+	if [[ ${http} == "TRUE" ]]
+	then
+		httprobe
 		printf "\n"
 	fi
 }
