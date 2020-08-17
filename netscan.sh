@@ -8,7 +8,7 @@ then
 fi
 
 check_deps () {
-	packages=(prips dig nmap nbtscan httprobe)
+	packages=(prips dig masscan nmap nbtscan httprobe)
 	for package in "${packages[@]}"
 	do
 		if ! command -v ${package} >/dev/null
@@ -122,7 +122,7 @@ log () {
 
 dnsenum () {
 	log "Scanning for DNS Servers..."
-	dns_servers=$(nmap -sS ${parsedlist[@]} -p 53 --open | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
+	dns_servers=$(nmap -sS ${parsedlist[@]} -p 53 --open -n | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
 	printf "Detected DNS Servers:\n${dns_servers}\n"
 	echo "---------------------------------------"
 	for server in ${dns_servers}
@@ -131,7 +131,7 @@ dnsenum () {
 		results=$(dig -x ${server} @${server} +short)
 		if [[ -n ${results} ]]
 		then
-			printf "${server}: ${results} (@{server})"
+			printf "${server}: ${results} (@${server})\n"
 		fi
 
 		log "Checking if any DNS names resolve to ${server} against all the DNS servers detected so far."
@@ -168,19 +168,15 @@ nbtenum () {
 	done
 }
 
-httprobe () {
-	for net in ${parsedlist[@]}
+httpenum () {
+	log "Scanning for HTTP(S) servers"
+	http_servers=$(nmap -sS ${parsedlist[@]} -p80,443,8080 --open -n | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
+	printf "Detected HTTP Servers:\n${http_servers}\n"
+	echo "---------------------------------------"
+	for ip in ${http_servers}
 	do
-		log "Scanning ${net} for HTTP(S) servers"
-		ip_addresses=$(prips ${net})
-		for ip in ${ip_addresses}
-		do
-			result=$(echo ${ip} | httprobe -t 1000)
-			if [ -n ${result} ]
-			then
-				echo ${result}
-			fi
-		done
+		log "Probing ${ip} for HTTP/HTTPS"
+		echo ${ip} | httprobe -p 8080 -t 2000
 	done
 }
 
@@ -198,7 +194,7 @@ main () {
 	fi
 	if [[ ${http} == "TRUE" ]]
 	then
-		httprobe
+		httpenum
 		printf "\n"
 	fi
 }
