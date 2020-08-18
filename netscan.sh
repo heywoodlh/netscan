@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 outdir="$(pwd)/out"
 mkdir -p ${outdir}
-usage="$0 --subnet 192.168.0.0/24,192.168.1.1/32 [ --all --dns --nbt --http --http-crawl ] --verbose"
+usage="$0 --subnet 192.168.0.0/24,192.168.1.1/32 [ --all --dns --nbt --http --http-crawl --rdp --ssh --smb ] --verbose"
 
 if [[ -z $1 ]]
 then
@@ -9,7 +9,7 @@ then
 fi
 
 check_deps () {
-	packages=(prips dig masscan nmap nbtscan httprobe meg)
+	packages=(prips dig masscan nmap nbtscan httprobe meg enum4linux)
 	for package in "${packages[@]}"
 	do
 		if ! command -v ${package} >/dev/null
@@ -89,6 +89,9 @@ while [[ $# -gt 0 ]]; do
 			export http="TRUE"
 			export http="TRUE"
 			export http_crawl="TRUE"
+			export rdp="TRUE"
+			export ssh="TRUE"
+			export smb="TRUE"
 			;;
 		--dns)
 			export dns="TRUE"
@@ -102,6 +105,15 @@ while [[ $# -gt 0 ]]; do
 		--http-crawl)
 			export http="TRUE"
 			export http_crawl="TRUE"
+			;;
+		--rdp)
+			export rdp="TRUE"
+			;;
+		--ssh)
+			export ssh="TRUE"
+			;;
+		--smb)
+			export smb="TRUE"
 			;;
 		-v|--verbose)
 			export verbose="TRUE"
@@ -130,7 +142,7 @@ log () {
 dnsenum () {
 	mkdir -p ${outdir}/dns
 	log "Scanning for DNS Servers..."
-	dns_servers=$(nmap -sS ${parsedlist[@]} -p 53 --open -n | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
+	dns_servers=$(nmap -sS ${parsedlist[@]} -p 53 --open -n | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | sort -u)
 	printf "Detected DNS Servers:\n"
 	printf "${dns_servers}\n" | tee -a ${outdir}/dns/servers.txt
 	echo "---------------------------------------"
@@ -174,15 +186,16 @@ nbtenum () {
 	for net in ${parsedlist[@]}
 	do
 		log "Scanning ${net} for NBT"
-		nbtscan -r ${net} 2>/dev/null | tee -a ${outdir}/nbt/nbt.txt
+		nbtscan ${net} 2>/dev/null | tee -a ${outdir}/nbt/nbt.txt
 	done
 }
 
 httpenum () {
 	mkdir -p ${outdir}/http
 	log "Scanning for HTTP(S) servers"
-	http_servers=$(nmap -sS ${parsedlist[@]} -p80,443,8080 --open -n | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
-	printf "Detected HTTP Servers:\n${http_servers}\n"
+	http_servers=$(nmap -sS ${parsedlist[@]} -p80,443,8080 --open -n | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | sort -u)
+	printf "Detected HTTP Servers:\n"
+	printf "${http_servers}\n"
 	echo "---------------------------------------"
 
 	uris=()
@@ -214,6 +227,39 @@ httpenum () {
 	fi
 }
 
+rdpenum () {
+	mkdir -p ${outdir}/rdp
+	log "Scanning for RDP servers"
+	rdp_servers=$(nmap -sS ${parsedlist[@]} -p3389 --open -n | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | sort -u)
+	printf "Detected RDP Servers:\n"
+	printf "${rdp_servers}\n" | tee -a ${outdir}/rdp/servers.txt
+	echo "---------------------------------------"
+}
+
+sshenum () {
+	mkdir -p ${outdir}/ssh
+	log "Scanning for SSH servers"
+	ssh_servers=$(nmap -sS ${parsedlist[@]} -p22 --open -n | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | sort -u)
+	printf "Detected SSH Servers:\n"
+	printf "${ssh_servers}\n" | tee -a ${outdir}/ssh/servers.txt
+	echo "---------------------------------------"
+}
+
+smbenum () {
+	mkdir -p ${outdir}/smb
+	log "Scanning for SMB port 445"
+	smb_servers=$(nmap -sS ${parsedlist[@]} -p445 --open -n | grep -Eo '[0-9]{1,3}\.[0-9  ]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | sort -u)
+	printf "Detected SMB Servers:\n"
+	printf "${smb_servers}\n" | tee -a ${outdir}/smb/servers.txt
+	echo "---------------------------------------"
+
+	log "Enumerating shares"
+	for ip in ${smb_servers}
+	do
+		enum4linux -U -o ${ip} | tee -a ${outdir}/smb/enum.txt
+	done
+}
+
 main () {
 	if [[ ${http_crawl} == "TRUE" ]]
 	then
@@ -242,9 +288,28 @@ main () {
 		nbtenum
 		printf "\n"
 	fi
+
 	if [[ ${http} == "TRUE" ]]
 	then
 		httpenum
+		printf "\n"
+	fi
+
+	if [[ ${rdp} == "TRUE" ]]
+	then
+		rdpenum
+		printf "\n"
+	fi
+
+	if [[ ${ssh} == "TRUE" ]]
+	then
+		sshenum
+		printf "\n"
+	fi
+
+	if [[ ${smb} == "TRUE" ]]
+	then
+		smbenum
 		printf "\n"
 	fi
 }
